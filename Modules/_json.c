@@ -53,6 +53,7 @@ typedef struct _PyEncoderObject {
     PyObject *defaultfn;
     PyObject *encoder;
     PyObject *indent;
+    PyObject *encode_float;
     PyObject *key_separator;
     PyObject *item_separator;
     char sort_keys;
@@ -66,6 +67,7 @@ static PyMemberDef encoder_members[] = {
     {"default", T_OBJECT, offsetof(PyEncoderObject, defaultfn), READONLY, "default"},
     {"encoder", T_OBJECT, offsetof(PyEncoderObject, encoder), READONLY, "encoder"},
     {"indent", T_OBJECT, offsetof(PyEncoderObject, indent), READONLY, "indent"},
+    {"encode_float", T_OBJECT, offsetof(PyEncoderObject, encode_float), READONLY, "encode_float"},
     {"key_separator", T_OBJECT, offsetof(PyEncoderObject, key_separator), READONLY, "key_separator"},
     {"item_separator", T_OBJECT, offsetof(PyEncoderObject, item_separator), READONLY, "item_separator"},
     {"sort_keys", T_BOOL, offsetof(PyEncoderObject, sort_keys), READONLY, "sort_keys"},
@@ -1232,15 +1234,14 @@ static PyType_Spec PyScannerType_spec = {
 static PyObject *
 encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = {"markers", "default", "encoder", "indent", "key_separator", "item_separator", "sort_keys", "skipkeys", "allow_nan", NULL};
+    static char *kwlist[] = {"markers", "default", "encoder", "indent", "encode_float", "key_separator", "item_separator", "sort_keys", "skipkeys", "allow_nan", NULL};
 
     PyEncoderObject *s;
-    PyObject *markers, *defaultfn, *encoder, *indent, *key_separator;
+    PyObject *markers, *defaultfn, *encoder, *indent, *encode_float, *key_separator;
     PyObject *item_separator;
     int sort_keys, skipkeys, allow_nan;
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOOUUppp:make_encoder", kwlist,
-        &markers, &defaultfn, &encoder, &indent,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "OOOOOUUppp:make_encoder", kwlist,
+        &markers, &defaultfn, &encoder, &indent, &encode_float,
         &key_separator, &item_separator,
         &sort_keys, &skipkeys, &allow_nan))
         return NULL;
@@ -1260,6 +1261,7 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     s->defaultfn = defaultfn;
     s->encoder = encoder;
     s->indent = indent;
+    s->encode_float = encode_float;
     s->key_separator = key_separator;
     s->item_separator = item_separator;
     s->sort_keys = sort_keys;
@@ -1278,6 +1280,7 @@ encoder_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     Py_INCREF(s->defaultfn);
     Py_INCREF(s->encoder);
     Py_INCREF(s->indent);
+    Py_INCREF(s->encode_float);
     Py_INCREF(s->key_separator);
     Py_INCREF(s->item_separator);
     return (PyObject *)s;
@@ -1342,6 +1345,9 @@ encoder_encode_float(PyEncoderObject *s, PyObject *obj)
 {
     /* Return the JSON representation of a PyFloat. */
     double i = PyFloat_AS_DOUBLE(obj);
+    if (s->encode_float != Py_None) {
+        return PyObject_CallFunctionObjArgs(s->encode_float, obj, NULL);
+    }
     if (!Py_IS_FINITE(i)) {
         if (!s->allow_nan) {
             PyErr_SetString(
@@ -1751,6 +1757,7 @@ encoder_traverse(PyEncoderObject *self, visitproc visit, void *arg)
     Py_VISIT(self->defaultfn);
     Py_VISIT(self->encoder);
     Py_VISIT(self->indent);
+    Py_VISIT(s->encode_float);
     Py_VISIT(self->key_separator);
     Py_VISIT(self->item_separator);
     return 0;
@@ -1764,6 +1771,7 @@ encoder_clear(PyEncoderObject *self)
     Py_CLEAR(self->defaultfn);
     Py_CLEAR(self->encoder);
     Py_CLEAR(self->indent);
+    Py_CLEAR(s->encode_float);
     Py_CLEAR(self->key_separator);
     Py_CLEAR(self->item_separator);
     return 0;
@@ -1780,7 +1788,7 @@ static PyType_Slot PyEncoderType_slots[] = {
     {Py_tp_members, encoder_members},
     {Py_tp_new, encoder_new},
     {0, 0}
-};
+;
 
 static PyType_Spec PyEncoderType_spec = {
     .name = "_json.Encoder",
