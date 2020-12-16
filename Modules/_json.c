@@ -1788,7 +1788,7 @@ static PyType_Slot PyEncoderType_slots[] = {
     {Py_tp_members, encoder_members},
     {Py_tp_new, encoder_new},
     {0, 0}
-;
+};
 
 static PyType_Spec PyEncoderType_spec = {
     .name = "_json.Encoder",
